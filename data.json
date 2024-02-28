@@ -1,0 +1,83 @@
+{
+  "ID": "fc01d3fd-d273-4332-bc28-7357de41a287",
+  "Name": "iPhone",
+  "Device Type": "phone",
+  "Properties Count": 10.0,
+  "Last Seen": "2024-02-28T15:25:15.773274Z",
+  "Timezone": "America/New_York",
+  "Properties": [
+    {
+      "Variable Name": "Accelerometer_Linear",
+      "Property ID": "03eef6e8-0255-46ac-8c8a-9c0de4ebf615",
+      "Type": "FLOAT",
+      "Last Value": 0.9935965169693596,
+      "Value Updated At": "2024-02-28T18:47:11.622Z"
+    },
+    {
+      "Variable Name": "Accelerometer_X",
+      "Property ID": "8f730dff-e1c5-42c4-8f17-161e3a8dc10f",
+      "Type": "FLOAT",
+      "Last Value": -0.011932373046875,
+      "Value Updated At": "2024-02-28T18:47:11.622Z"
+    },
+    {
+      "Variable Name": "Accelerometer_Y",
+      "Property ID": "fa05532e-4c83-45db-bb54-f3cb9426f8b9",
+      "Type": "FLOAT",
+      "Last Value": -0.0105133056640625,
+      "Value Updated At": "2024-02-28T18:47:11.622Z"
+    },
+    {
+      "Variable Name": "Accelerometer_Z",
+      "Property ID": "ef7e2682-b8b7-42cf-942c-78bd4055e76b",
+      "Type": "FLOAT",
+      "Last Value": -0.99346923828125,
+      "Value Updated At": "2024-02-28T18:47:11.622Z"
+    },
+    {
+      "Variable Name": "Brightness",
+      "Property ID": "cfa64d4b-d7d5-4d99-9060-b7e6b7c578de",
+      "Type": "FLOAT",
+      "Last Value": 3.0,
+      "Value Updated At": "2024-02-28T18:47:11.622Z"
+    },
+    {
+      "Variable Name": "Compass",
+      "Property ID": "f26f3e92-3ccc-44c5-bcf0-eeff4c2fdf1d",
+      "Type": "FLOAT",
+      "Last Value": 47.0,
+      "Value Updated At": "2024-02-28T18:47:07.545Z"
+    },
+    {
+      "Variable Name": "Magnetometer_X",
+      "Property ID": "7caf52ca-eb70-4a09-9051-c08abdeee2b0",
+      "Type": "FLOAT",
+      "Last Value": 12.538955688476562,
+      "Value Updated At": "2024-02-28T18:47:11.622Z"
+    },
+    {
+      "Variable Name": "Sound_Level",
+      "Property ID": "9e538148-2d80-4b8e-84b0-59cf9cf2a7b3",
+      "Type": "FLOAT",
+      "Last Value": 61.62287712097168,
+      "Value Updated At": "2024-02-28T18:47:11.622Z"
+    },
+    {
+      "Variable Name": "Sound_Pitch",
+      "Property ID": "e6415ae3-c3fe-42a6-aec1-9c6871b5812d",
+      "Type": "FLOAT",
+      "Last Value": 124.14024203431379,
+      "Value Updated At": "2024-02-28T18:47:11.622Z"
+    },
+    {
+      "Variable Name": "Gps",
+      "Property ID": "4d94453b-2ae9-4ac5-b8f7-38a20a17ec32",
+      "Type": "LOCATION",
+      "Last Value": {
+        "lat": 55.871390470589404,
+        "lon": -4.279282241159119
+      },
+      "Value Updated At": "2024-02-28T18:47:11.622Z"
+    }
+  ]
+}
