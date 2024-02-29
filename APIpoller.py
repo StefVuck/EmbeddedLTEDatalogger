@@ -27,6 +27,11 @@ running = True
 def cleanup():
     global running
     running = False
+    try:
+        prop_df.to_csv('data.csv')
+        print("Data saved to data.csv")
+    except Exception as e:
+        print(f"An exception occurred while saving data: {e}")
 
 # function to fetch and format api data into a pandas dataframe
 def fetch_and_format_api_data(api_instance):
@@ -34,7 +39,7 @@ def fetch_and_format_api_data(api_instance):
     if not running:
         return
     def handle_special_data(value):
-        if isinstance(value, decimal):
+        if isinstance(value, Decimal):
             return float(value)
         elif hasattr(value, '__dict__'):  # checks if the value is an object that can be converted to a dict
             value = dict(value)  # convert dynamicschema or similar objects to dict
@@ -71,7 +76,7 @@ def fetch_and_format_api_data(api_instance):
                 'Magnetometer_X': props[6]['last_value'],
                 'Sound_Level': props[7]['last_value'],
                 'Sound_Pitch': props[8]['last_value'],
-                'Gps': props[9]['last_value']
+                'Gps': handle_special_data(props[9]['last_value'])
             }
             if running:
                 print(prop_df)
