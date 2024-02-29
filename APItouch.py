@@ -118,7 +118,7 @@ if __name__ == "__main__":
         dicter = resp.__dict__
         print("Response from server:")
         dictproper = format_api_response(resp.__dict__)
-        print(resp.__dict__)
+        print(resp.__dict__['body'][0]['thing']['properties'][8])
 
         data = json.dumps(dictproper, cls=CustomEncoder, indent=2)
         # print(data)
