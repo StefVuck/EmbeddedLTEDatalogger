@@ -27,12 +27,7 @@ running = True
 def cleanup():
     global running
     running = False
-    try:
-        prop_df.to_csv('data.csv')
-        print("Data saved to data.csv")
-    except Exception as e:
-        print(f"An exception occurred while saving data: {e}")
-
+    
 # function to fetch and format api data into a pandas dataframe
 def fetch_and_format_api_data(api_instance):
     global prop_df, meta_df, last_seen, inactive_count, running
@@ -149,6 +144,12 @@ def main():
         print("Cleaning up...")
         cleanup()
         update_thread.join()
+        try:
+            prop_df.to_csv('data.csv')
+            print("Data saved to data.csv")
+        except Exception as e:
+            print(f"An exception occurred while saving data: {e}")
+
         print("Program Exited Cleanly")
 
 if __name__ == "__main__":
