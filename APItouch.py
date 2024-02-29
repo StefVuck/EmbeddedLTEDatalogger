@@ -13,24 +13,6 @@ import json
 from mpl_toolkits.basemap import Basemap
 import pandas as pd
 
-def parse_dynamic_schema(obj):
-    """
-    Recursively parse objects into standard Python dict and list structures.
-    This version avoids direct type checks against an undefined 'DynamicSchema' class.
-    """
-    if hasattr(obj, '__dict__'):
-        # Attempt to convert objects with '__dict__' attribute to dictionaries
-        return {k: parse_dynamic_schema(v) for k, v in obj.__dict__.items()}
-    elif hasattr(obj, 'items'):  # This will help in handling dictionary-like objects
-        # Recursively process dictionary-like objects
-        return {k: parse_dynamic_schema(v) for k, v in obj.items()}
-    elif isinstance(obj, (list, tuple)):
-        # Recursively process each item in lists or tuples
-        return [parse_dynamic_schema(item) for item in obj]
-    else:
-        # Return the object as-is if it doesn't match any of the above conditions
-        return obj
-
 
 def format_api_response(parsed_data):
     """
@@ -87,6 +69,23 @@ if __name__ == "__main__":
     token_url = "https://api2.arduino.cc/iot/v1/clients/token"
     oauth = OAuth2Session(client=oauth_client)
 
+    '''
+    TODO: 
+        - Functionalise the token gathering, call every 280s, to avoid timeout
+        - Create setup() function, to avoid looping key generation and gathering
+        - Create external verification file or OAuth??
+        - Transisiton towards pandas dataframes instead of JSONs for storing data
+        - Rework CustomEncoder?
+        - Write to CSV
+    '''
+
+    '''
+    Planned Workflow:
+
+
+
+    '''
+
     # This will fire an actual HTTP call to the server to exchange client_id and
     # client_secret with a fresh access token
     token = oauth.fetch_token(
@@ -119,7 +118,8 @@ if __name__ == "__main__":
         dicter = resp.__dict__
         print("Response from server:")
         dictproper = format_api_response(resp.__dict__)
-        # print(dictproper)
+        print(resp.__dict__)
+
         data = json.dumps(dictproper, cls=CustomEncoder, indent=2)
         # print(data)
         with open('data.json', 'w') as f:
