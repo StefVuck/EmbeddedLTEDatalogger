@@ -1,0 +1,76 @@
+/* custom.css */
+body, html {
+    margin: 0;
+    padding: 0;
+
+    /* This ensures the background image will cover the entire screen, and avoids scrolling */
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+
+    /* This is a linear gradient that goes from #2569A3 to black from the top left corner downwards */
+    background: linear-gradient(135deg, #2569A3, #000); 
+    color: white;
+    box-sizing: border-box;
+    font-family: 'Charcoal', sans-serif; /* Default font will set to sans-serif if Charcoal isn't available */
+}
+
+/* Styling for the top title bar */
+.title-container {
+    display: flex;
+    align-items: center; 
+    justify-content: center;
+    margin-bottom: 20px;
+    text-align: left; 
+}
+
+/* Styling for the title */
+.dashboard-header {
+    margin-left: 13px;
+    color: black; 
+    font-size: 2.5em;
+}
+
+/* Styling for the map and graph container */
+.dashboard-container {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+    padding: 20px;
+    height: 300px; 
+}
+
+/* Generic styling for the cards */
+.card-effect {
+    flex: 1; 
+    display: flex; /* This ensures the iframe can be styled correctly within */
+    justify-content: center;
+    align-items: center;
+    height: 300px;
+    padding: 10px;
+    box-sizing: border-box;
+    margin-right: 20px;
+}
+
+/* Adds to the styling of the card-effect div */
+/* This ensures the iframe is styled correctly within the card-effect div */
+.card-effect iframe {
+    border: 10px solid #615B59;
+    border-radius: 5px;
+    width: 100%;
+    height: 100%;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.graph-container {
+    flex: 1;
+    display: flex;
+    justify-content: space-between; /* This ensures the graphs are spaced evenly */
+}
+
+.graph-item {
+    flex-basis: 33%; 
+    padding: 10px;
+    box-sizing: border-box;
+    height: 300px;
+}

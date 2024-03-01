@@ -1,35 +1,85 @@
-
+# General Imports:
 import pandas as pd
-import matplotlib.pyplot as plt
 import time
 import threading
-import iot_api_client
-from iot_api_client.rest import ApiException
-import  iot_api_client.apis.tags.devices_v2_api as DevicesV2
-import folium
-import webbrowser
-from oauthlib.oauth2 import BackendApplicationClient
-from requests_oauthlib import OAuth2Session
-# from matplotlib.animation import funcanimation
 from datetime import datetime
 from decimal import Decimal
+
 # Handle Exit Signals
 import atexit
 
+# API Client Imports:
+import iot_api_client
+from iot_api_client.rest import ApiException
+import  iot_api_client.apis.tags.devices_v2_api as DevicesV2
+from oauthlib.oauth2 import BackendApplicationClient
+from requests_oauthlib import OAuth2Session
+
+# Dash-Based Imports:
+import plotly.express as px
+from dash import Dash, html, dcc
+from dash.dependencies import Input, Output
+
+# Map Generation Imports:
+import folium
+
+# Initialize Dash app
+app = Dash(__name__)
+
+# Initialize our Dataframe
+prop_df = pd.DataFrame(columns = ['Timestamp','Accelerometer_Linear','Accelerometer_X','Accelerometer_Y','Accelerometer_Z','Brightness', 'Compass', 'Magnetometer_X', 'Sound_Level', 'Sound_Pitch', 'Gps'])
+
+# Multithreading Handling
 lock = threading.Lock()
-prop_df = pd.DataFrame(columns = ['Accelerometer_Linear','Accelerometer_X','Accelerometer_Y','Accelerometer_Z','Brightness', 'Compass', 'Magnetometer_X', 'Sound_Level', 'Sound_Pitch', 'Gps'])
+running = True # Global flag to control the main loop
+shutdown_event = threading.Event()
+
+# Inactivity Handling
 last_seen = "Placeholder"
 inactive_count = 0
-# Global Thread Control Flag
-running = True
 
-'''Callback function to handle exit signals '''
+
+"""Dashboard Layout"""
+app.layout = html.Div([
+ 
+    # Container for the title and logo
+    html.Div([
+        html.Img(src='/assets/UGR.png', style={'width': '200px', 'height': 'auto'}),
+        html.H1("Telemetry Dashboard", className='dashboard-header'),
+    ], className='title-container'),
+      
+
+    # Container for the first two items (iframe and graph)
+    html.Div(className='dashboard-container', children=[
+        # Card effect container for the iframe
+        html.Div(className='card-effect', children=[
+            html.Iframe(id='live-update-map')
+        ]),
+
+        dcc.Graph(id='Accel_Lin', className='graph-container'),
+    ]),
+
+    # Container for the next three graphs
+    html.Div(className='graph-container', children=[
+        dcc.Graph(id='Accel_X', className='graph-item'),
+        dcc.Graph(id='Accel_Y', className='graph-item'),
+        dcc.Graph(id='Accel_Z', className='graph-item'),
+    ]),
+
+    # Interval component to trigger updates, set to 1.3 seconds
+    dcc.Interval(id='interval-component', interval=1300, n_intervals=0),
+])
+
+
+
+"""Callback function to handle exit signals"""
 def cleanup():
     global running
     running = False
     # Please don't add pre-exit code here, cleanup gets executed by all threads.
         # Pre-Exit code should be added in the "finally" section of the main thread.
     
+
 
 # TODO: Abstract this out into a separate file ?
 # function to fetch and format api data into a pandas dataframe
@@ -65,18 +115,20 @@ def fetch_and_format_api_data(api_instance):
                 else:
                     print("\n\nDevice inactive for over 10 seconds, exiting...")
                     cleanup()
+                    return
             else:
                 inactive_count = 0
                 
             last_seen = body_data['last_activity_at']
 
-
+            timestamp = datetime.now()
             # Extract and format the nested API response data
-            prop_df.loc[datetime.now()] = {
-                'Accelerometer_Linear': props[0]['last_value'],
-                'Accelerometer_X': props[1]['last_value'],
-                'Accelerometer_Y': props[2]['last_value'],
-                'Accelerometer_Z': props[3]['last_value'],
+            prop_df.loc[timestamp] = {
+                'Timestamp' : timestamp,
+                'Accelerometer_Linear': handle_special_data(props[0]['last_value']),
+                'Accelerometer_X': handle_special_data(props[1]['last_value']),
+                'Accelerometer_Y': handle_special_data(props[2]['last_value']),
+                'Accelerometer_Z': handle_special_data(props[3]['last_value']),
                 'Brightness': props[4]['last_value'],
                 'Compass': handle_special_data(props[5]['last_value']),
                 'Magnetometer_X': props[6]['last_value'],
@@ -91,6 +143,116 @@ def fetch_and_format_api_data(api_instance):
 
         except ApiException as e:
             print(f"an exception occurred: {e}")
+
+
+
+"""Parse the GPS string format into latitude and longitude."""
+def parse_gps(gps_str):
+    try:
+        lat, lon = gps_str.split(', ')
+        lat_val = float(lat.split(': ')[1])
+        lon_val = float(lon.split(': ')[1])
+        print(lat_val, lon_val)
+        return lat_val, lon_val
+    except ValueError:
+        # Handle the case where parsing fails
+        return None, None
+
+
+"""Folium GPS Map Creation"""
+def create_folium_map(df):
+    # Assuming the first row has valid GPS data to center the map
+    with lock:    
+        first_lat, first_lon = parse_gps(df['Gps'].iloc[0])
+    m = folium.Map(location=[first_lat, first_lon], zoom_start=15)
+    with lock: 
+        gps_strs = df['Gps']
+
+    for gps_str in gps_strs:
+        lat, lon = parse_gps(gps_str)
+        if lat and lon:
+            folium.Marker([lat, lon]).add_to(m)
+    
+    # Save the map to an HTML file
+    m.save('map.html')
+    return 'map.html'
+
+
+"""
+This function will update the graph info for the Dash Ouputs: 
+"Accel_Lin", "Accel_X", "Accel_Y", "Accel_Z"
+
+On update of input: 
+"interval-component"
+
+Which is set to 1.3 seconds in the layout
+"""
+@app.callback(
+    [Output('Accel_Lin', 'figure'),
+    Output('Accel_X', 'figure'),
+    Output('Accel_Y', 'figure'),
+    Output('Accel_Z', 'figure')],
+    [Input('interval-component', 'n_intervals')]
+)
+def update_graph(n):
+    global prop_df, lock
+
+    # Optimisation: 
+    # As we must keep the data in prop_df locked while accessing, we can copy the data to a new dataframe
+    # This will allow the API thread to continue running/appending while this data gets processed into plots
+
+    with lock:
+        dff = prop_df.copy()
+
+    # Generate the figures with transparent backgrounds
+    figures = []
+    for axis in ['Accelerometer_Linear', 'Accelerometer_X', 'Accelerometer_Y', 'Accelerometer_Z']:
+        fig = px.line(dff, x='Timestamp', y=axis)
+        fig.update_layout({
+            'plot_bgcolor': 'rgba(0,0,0,0)',
+            'paper_bgcolor': 'rgba(0,0,0,0)',
+            'font': {
+                'color': '#ccc'
+            }
+        })
+        fig.update_traces(line=dict(color='#DAA520'),  # Darker shade of yellow for the line
+                          marker=dict(color='#FFFF00', size=10))  # Lighter yellow for points with specified size
+        figures.append(fig)    
+
+
+    return figures
+
+"""
+This function will update the graph info for the Dash Ouputs: 
+"live-update-map"
+
+On update of input: 
+"interval-component"
+
+Which is set to 1.3 seconds in the layout
+"""
+@app.callback(
+    [Output('live-update-map', 'srcDoc')],
+    [Input('interval-component', 'n_intervals')]
+    )
+def update_map(n):
+    global prop_df, lock
+
+    with lock:
+        dff = prop_df.copy()
+
+
+    map_html = create_folium_map(dff)
+    try:
+        # Attempt to read the HTML content of the map
+        with open(map_html, 'r') as file:
+            map_html_content = file.read()
+        return [map_html_content]  # Return the content in a list to match the expected output structure
+    except Exception as e:
+        print(f"Error reading map HTML file: {e}")
+        return ["Map is not available"]  # Return an error message if unable to read the file
+
+
 
 def setup():
     # Setup the OAuth2 session that'll be used to request the server an access token
@@ -127,74 +289,72 @@ def setup():
     return api_instance
 
 
-''' 
-MULTITHREADED DATA CALLING:
-PLEASE DON'T TOUCH IF YOU DON'T KNOW WHAT YOU'RE DOING
-'''
+""" MULTITHREADED DATA CALLING: PLEASE DON'T TOUCH IF YOU DON'T KNOW WHAT YOU'RE DOING"""
 # Function to continuously update data
 def continuous_data_update(api_instance, update_interval=1):
     global running
     print("Starting continuous data update")
     while running:
-        fetch_and_format_api_data(api_instance)
-        time.sleep(update_interval)  # Wait for the specified update interval
+        try:
+            fetch_and_format_api_data(api_instance)
+            time.sleep(update_interval)  # Wait for the specified update interval
+        except:
+            print("Error in continuous_data_update")
+            break
+    print("Exiting continuous data update")
+    shutdown_event.set()  # Signal the shutdown event
 
 
 def main():
-    global running
+    global running, prop_df
 
     # Setup the API Client
     api_instance = setup()
        
-    ''' MULTITHREADING HANDLER:
-    PLEASE DONT TOUCH IF YOU DONT KNOW WHAT YOU'RE DOING'''
+    """MULTITHREADING HANDLER: PLEASE DONT TOUCH IF YOU DONT KNOW WHAT YOU'RE DOING"""
+        # Define a route within your Dash app to handle shutdown
+    @app.server.route('/shutdown', methods=['POST'])
+    def shutdown():
+        shutdown_server()
+        return 'Server shutting down...'
     # Start continuous data update in a background thread
     update_thread = threading.Thread(target=continuous_data_update, args=(api_instance, 1.5))
     update_thread.start()
+
+    """ END OF MULTITHREADING HANDLER """
     
     # Register cleanup function to be called on exit
     atexit.register(cleanup)
 
-    ''' END OF MULTITHREADING HANDLER '''
-
-
-
-    ''' MAIN THREAD HANDLING GOES HERE '''
-
-    # Main Thread Handling
+    # Optimisation: Keep Dash up until shutdown event is set, don't let end of data transmission kill it
     try:
-        while running:
-            time.sleep(0.2)
-        ### ADD PLOTTING ETC here
-
-    ''' END OF MAIN THREAD HANDLING '''
+        # Run the Dash app
+        while not shutdown_event.is_set():
+            app.run_server() 
 
 
-
-
-    ''' EXCEPTION HANDLING AND CLEANUP '''
     except KeyboardInterrupt:
         print("Keyboard Interrupt Detected. Exiting...")
-        cleanup()
 
     # Cleanup of threads and data
     finally:
-        
+        cleanup() 
         print("Cleaning up...")
-        cleanup()
         update_thread.join()
-
-        # Writing data to a csv file
+        print("Exiting main thread")
         try:
-            prop_df.to_csv('data.csv')
-            print("Data saved to data.csv")
+            with lock:
+                # Writing data to a csv file
+                try:
+                    prop_df.to_csv('data.csv', index=False)
+                    print("Data saved to data.csv")
+                except Exception as e:
+                    print(f"An exception occurred while saving data: {e}")
         except Exception as e:
-            print(f"An exception occurred while saving data: {e}")
-
-        # User feedback
-        print("Program Exited Cleanly")
+            print(f"An exception occurred while cleaning up: {e}")
+        finally:
+            # User feedback
+            print("Program Exited Cleanly")
 
 if __name__ == "__main__":
     main()
-        # Main thread can be used for other tasks, e.g., plotting
-    # Note: For real-time plotting, consider using matplotlib.animation.FuncAnimation
