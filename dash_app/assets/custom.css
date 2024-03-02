@@ -40,27 +40,38 @@ body, html {
     height: 300px; 
 }
 
+
 /* Generic styling for the cards */
 .card-effect {
-    flex: 1; 
-    display: flex; /* This ensures the iframe can be styled correctly within */
-    justify-content: center;
-    align-items: center;
+    width: 40%; /* Adjust based on preference and layout */
     height: 300px;
-    padding: 10px;
-    box-sizing: border-box;
-    margin-right: 20px;
+    padding: 20px;
+    margin: auto; /* Centering the card */
+    box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+    transition: 0.3s;
+    border-radius: 5px; /* Optional: for rounded corners */
+    background-color: #cccccc; /* Greyish background */
+    display: flex;
+    justify-content: center;
+    align-items: center; /* Centering the graph container */
 }
 
-/* Adds to the styling of the card-effect div */
-/* This ensures the iframe is styled correctly within the card-effect div */
-.card-effect iframe {
-    border: 10px solid #615B59;
-    border-radius: 5px;
-    width: 100%;
-    height: 100%;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+.card-effect:hover {
+    box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
 }
+
+
+@media (max-width: 768px) { /* Example breakpoint for smaller screens */
+    .card-effect {
+        width: 98%; /* Takes more space on smaller screens */
+        height: auto; /* Adjust height for smaller screens */
+    }
+    .graph-container {
+        width: 95%; /* Optionally adjust for smaller screens */
+        height: 80%; /* Adjust based on your content */
+    }
+}
+
 
 .graph-container {
     flex: 1;
@@ -73,4 +84,10 @@ body, html {
     padding: 10px;
     box-sizing: border-box;
     height: 300px;
+}
+
+.map-container {
+    width: 80%;
+    height: 500px; /* Adjust based on your preference */
+    margin: auto; /* Center the map container */
 }

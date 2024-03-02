@@ -21,7 +21,7 @@ from dash import Dash, html, dcc
 from dash.dependencies import Input, Output
 
 # Map Generation Imports:
-import folium
+# import folium
 import sys
 import os
 
@@ -37,7 +37,7 @@ else:
 assets_folder = os.path.join(application_root, 'assets/')
 print(f"Assets folder: {assets_folder}")
 # Initialize the Dash app with the dynamically determined assets folder
-app = Dash(__name__)
+app = Dash(__name__, assets_folder=assets_folder)
 
 # Initialize our Dataframe
 prop_df = pd.DataFrame(columns = ['Timestamp','Accelerometer_Linear','Accelerometer_X','Accelerometer_Y','Accelerometer_Z','Brightness', 'Compass', 'Magnetometer_X', 'Sound_Level', 'Sound_Pitch', 'Gps'])
@@ -66,7 +66,7 @@ app.layout = html.Div([
     html.Div(className='dashboard-container', children=[
         # Card effect container for the iframe
         html.Div(className='card-effect', children=[
-            html.Iframe(id='live-update-map')
+            dcc.Graph(id='live-update-map', className='map-container'),
         ]),
 
         dcc.Graph(id='Accel_Lin', className='graph-container'),
@@ -81,6 +81,7 @@ app.layout = html.Div([
 
     # Interval component to trigger updates, set to 1.3 seconds
     dcc.Interval(id='interval-component', interval=1300, n_intervals=0),
+    dcc.Interval(id="Map-Interval", interval=3000, n_intervals=0), # 5 second interval for map updates
 ])
 
 
@@ -171,25 +172,25 @@ def parse_gps(gps_str):
         # Handle the case where parsing fails
         return None, None
 
-
-"""Folium GPS Map Creation"""
-def create_folium_map(df):
-    # Assuming the first row has valid GPS data to center the map
-    with lock:    
-        first_lat, first_lon = parse_gps(df['Gps'].iloc[0])
-    m = folium.Map(location=[first_lat, first_lon], zoom_start=15)
-    with lock: 
-        gps_strs = df['Gps']
-
-    for gps_str in gps_strs:
-        lat, lon = parse_gps(gps_str)
-        if lat and lon:
-            folium.Marker([lat, lon]).add_to(m)
-    
-    # Save the map to an HTML file
-    m.save('map.html')
-    return 'map.html'
-
+# TODO: Replace with open-street-maps API
+# """Folium GPS Map Creation"""
+# def create_folium_map(df):
+#     # Assuming the first row has valid GPS data to center the map
+#     with lock:    
+#         first_lat, first_lon = parse_gps(df['Gps'].iloc[0])
+#     m = folium.Map(location=[first_lat, first_lon], zoom_start=15)
+#     with lock: 
+#         gps_strs = df['Gps']
+#
+#     for gps_str in gps_strs:
+#         lat, lon = parse_gps(gps_str)
+#         if lat and lon:
+#             folium.Marker([lat, lon]).add_to(m)
+#     
+#     # Save the map to an HTML file
+#     m.save('map.html')
+#     return 'map.html'
+#
 
 """
 This function will update the graph info for the Dash Ouputs: 
@@ -244,27 +245,57 @@ On update of input:
 
 Which is set to 1.3 seconds in the layout
 """
+
 @app.callback(
-    [Output('live-update-map', 'srcDoc')],
-    [Input('interval-component', 'n_intervals')]
-    )
+    Output('live-update-map', 'figure'),
+    [Input('Map-Interval', 'n_intervals')]
+)
 def update_map(n):
     global prop_df, lock
 
     with lock:
         dff = prop_df.copy()
 
+    if not dff.empty:
+        # Assuming 'Gps' column exists and is in the format "Latitude: xx.xx, Longitude: yy.yy"
+        # You may need to adjust the parsing logic based on your actual data format
+        dff['lat'], dff['lon'] = zip(*dff['Gps'].apply(parse_gps))
 
-    map_html = create_folium_map(dff)
-    try:
-        # Attempt to read the HTML content of the map
-        with open(map_html, 'r') as file:
-            map_html_content = file.read()
-        return [map_html_content]  # Return the content in a list to match the expected output structure
-    except Exception as e:
-        print(f"Error reading map HTML file: {e}")
-        return ["Map is not available"]  # Return an error message if unable to read the file
+        # Ensure no rows with missing GPS data
+        dff = dff.dropna(subset=['lat', 'lon'])
 
+        fig = px.scatter_mapbox(dff, lat="lat", lon="lon",
+                                 hover_name="Timestamp",
+                                 color_discrete_sequence=["fuchsia"],
+                                 zoom=15, height=300)
+        fig.update_layout(mapbox_style="open-street-map",
+                          autosize=True,
+                          height = 300,
+                          # width = 300,
+                          margin={"r":0,"t":0,"l":0,"b":0})
+        fig.update_layout()
+    else:
+        fig = {
+            "layout": {
+                "xaxis": {
+                    "visible": False
+                },
+                "yaxis": {
+                    "visible": False
+                },
+                "annotations": [{
+                    "text": "No data available",
+                    "xref": "paper",
+                    "yref": "paper",
+                    "showarrow": False,
+                    "font": {
+                        "size": 28
+                    }
+                }]
+            }
+        }
+
+    return fig
 
 
 def setup():
