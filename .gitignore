@@ -1,2 +1,7 @@
-*.csv
+./dash_app/*.csv
 *.html
+./UGRTelemetryDashboard-win32-x64
+./UGRTelemetryDashboard-win32-x64.zip
+./dist
+./APIpoller.spec
+./build

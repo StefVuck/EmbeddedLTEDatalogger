@@ -2,6 +2,7 @@ const { app, BrowserWindow, screen } = require('electron');
 const { spawn } = require('child_process');
 const http  = require('http');
 const path = require('path');
+const { execFile } = require('child_process');
 
 function createPythonSubprocess() {
   // Define the path to your Python executable
@@ -11,19 +12,15 @@ function createPythonSubprocess() {
   const scriptPath = './dash_app/APIpoller.py';
 
   // Spawn the Python subprocess
-  const pythonProcess = spawn(pythonExecutable, [scriptPath]);
+  
+const pathToExecutable = path.join(__dirname, 'dist/APIpoller.exe');
 
-  pythonProcess.stdout.on('data', (data) => {
-    console.log(`stdout: ${data}`);
-  });
-
-  pythonProcess.stderr.on('data', (data) => {
-    console.error(`stderr: ${data}`);
-  });
-
-  pythonProcess.on('close', (code) => {
-    console.log(`Python subprocess exited with code ${code}`);
-  });
+execFile(pathToExecutable, (error, stdout, stderr) => {
+  if (error) {
+    throw error;
+  }
+  console.log(stdout);
+});
 }
 
 // Call the function to start the Python script

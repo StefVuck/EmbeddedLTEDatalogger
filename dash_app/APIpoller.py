@@ -22,8 +22,21 @@ from dash.dependencies import Input, Output
 
 # Map Generation Imports:
 import folium
+import sys
+import os
 
-# Initialize Dash app
+# Determine if the app is "frozen" and running as an executable
+if getattr(sys, 'frozen', False):
+    # If the app is running as a frozen executable, the base path is set to sys._MEIPASS
+    application_root = sys._MEIPASS
+else:
+    # If running in a development environment, use the current directory as the base path
+    application_root = os.path.dirname(os.path.abspath(__file__))
+
+# Specify the assets folder path relative to the determined base path
+assets_folder = os.path.join(application_root, 'assets/')
+print(f"Assets folder: {assets_folder}")
+# Initialize the Dash app with the dynamically determined assets folder
 app = Dash(__name__)
 
 # Initialize our Dataframe
