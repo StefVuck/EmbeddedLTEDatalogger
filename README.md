@@ -17,6 +17,7 @@ For production releases, electron-packager will be used to package into a enviro
 - `pip install arduino-iot-client`
 - `pip install requests-oauthlib`
 - `pip install dash`
+- `pip install frozendict`
 
 ### Javascript:
 - Node JS installed
