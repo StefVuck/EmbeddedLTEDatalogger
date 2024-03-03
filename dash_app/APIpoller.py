@@ -23,9 +23,9 @@ from dash.dependencies import Input, Output
 
 # Map Generation Imports:
 # import folium
+import numpy as np
 import sys
 import os
-
 # Determine if the app is "frozen" and running as an executable
 if getattr(sys, 'frozen', False):
     # If the app is running as a frozen executable, the base path is set to sys._MEIPASS
@@ -224,31 +224,11 @@ def parse_gps(gps_str):
         lat, lon = gps_str.split(', ')
         lat_val = float(lat.split(': ')[1])
         lon_val = float(lon.split(': ')[1])
-        print(lat_val, lon_val)
         return lat_val, lon_val
     except ValueError:
         # Handle the case where parsing fails
         return None, None
 
-# TODO: Replace with open-street-maps API
-# """Folium GPS Map Creation"""
-# def create_folium_map(df):
-#     # Assuming the first row has valid GPS data to center the map
-#     with lock:    
-#         first_lat, first_lon = parse_gps(df['Gps'].iloc[0])
-#     m = folium.Map(location=[first_lat, first_lon], zoom_start=15)
-#     with lock: 
-#         gps_strs = df['Gps']
-#
-#     for gps_str in gps_strs:
-#         lat, lon = parse_gps(gps_str)
-#         if lat and lon:
-#             folium.Marker([lat, lon]).add_to(m)
-#     
-#     # Save the map to an HTML file
-#     m.save('map.html')
-#     return 'map.html'
-#
 
 """
 This function will update the graph info for the Dash Ouputs: 
@@ -294,6 +274,28 @@ def update_graph(n):
 
     return figures
 
+
+def get_color(norm_metric):
+    """Interpolate color based on normalized metric value, with adjusted color transitions."""
+    if norm_metric <= 0.2:
+        # Set everything from 0 to 0.2 as straight red
+        r, g = 1, 0
+    elif norm_metric < 0.9:
+        # Adjusted range for interpolation
+        adjusted_metric = (norm_metric - 0.2) / (0.9 - 0.2)
+        if adjusted_metric <= 0.5:
+            # Interpolate between red (1,0,0) and yellow (1,1,0)
+            r = 1
+            g = adjusted_metric * 2  # Scale up to fill the gap to yellow
+        else:
+            # Interpolate between yellow (1,1,0) and green (0,1,0)
+            r = 1 - (adjusted_metric - 0.5) * 2  # Scale down red to 0
+            g = 1
+    else:
+        # Everything above 0.9 is green
+        r, g = 0, 1
+    return f'rgb({int(r*255)}, {int(g*255)}, 0)'
+
 """
 This function will update the graph info for the Dash Ouputs: 
 "live-update-map"
@@ -303,6 +305,7 @@ On update of input:
 
 Which is set to 1.3 seconds in the layout
 """
+
 
 @app.callback(
     Output('live-update-map', 'figure'),
@@ -315,61 +318,43 @@ def update_map(n):
         dff = prop_df.copy()
 
     if not dff.empty:
-        # Assuming 'Gps' column exists and is in the format "Latitude: xx.xx, Longitude: yy.yy"
-        # You may need to adjust the parsing logic based on your actual data format
         dff['lat'], dff['lon'] = zip(*dff['Gps'].apply(parse_gps))
-
-        # Ensure no rows with missing GPS data
         dff = dff.dropna(subset=['lat', 'lon'])
 
-
-# Assuming dff is already defined and contains 'lat' and 'lon' columns
         dff['lat_diff'] = dff['lat'].diff().abs()
         dff['lon_diff'] = dff['lon'].diff().abs()
-
-# Calculate a simple change metric as the sum of absolute differences
         dff['change_metric'] = dff['lat_diff'] + dff['lon_diff']
-
-# Normalize the metric
         dff['norm_change_metric'] = (dff['change_metric'] - dff['change_metric'].min()) / (dff['change_metric'].max() - dff['change_metric'].min())
 
+        # Apply a non-linear transformation to reduce sensitivity
+        dff['norm_change_metric'] = np.power(dff['norm_change_metric'], 0.6)
+
         fig = px.scatter_mapbox(dff, lat="lat", lon="lon",
-                                 hover_name="Timestamp",
-                                 hover_data=["Accelerometer_Linear", "Accelerometer_X", "Accelerometer_Y", "Accelerometer_Z"],
-                                # mode = 'lines+markers',
-                                 color_discrete_sequence=["gold"],
-                                 zoom=15, height=300)
+                                hover_name="Timestamp",
+                                hover_data=["Accelerometer_Linear", "Accelerometer_X", "Accelerometer_Y", "Accelerometer_Z"],
+                                color_discrete_sequence=["gold"],
+                                zoom=15, height=300)
 
         dff.sort_values('Timestamp', inplace=True)
         for i in range(1, len(dff)):
-            # Check if norm_change_metric is NaN or if there's no change
             if not pd.isna(dff.iloc[i]['norm_change_metric']) and dff.iloc[i]['change_metric'] > 0:
-                # Calculate color based on norm_change_metric
-                # Green (low change) to Red (high change)
                 norm_metric = dff.iloc[i]["norm_change_metric"]
-                # Red channel: High for high change_metric
-                red = int(255 * norm_metric)
-                # Green channel: High for low change_metric
-                green = int(255 * (1 - norm_metric))
-                # Keep blue channel at 0
-                blue = 0
-                color = f'rgb({red},{green},{blue})'
-                
+                color = get_color(norm_metric)
+
                 fig.add_trace(go.Scattermapbox(
                     mode="lines",
                     lon=[dff.iloc[i-1]['lon'], dff.iloc[i]['lon']],
                     lat=[dff.iloc[i-1]['lat'], dff.iloc[i]['lat']],
                     line=dict(width=3, color=color),
+                    showlegend=False  # This hides the legend for each individual trace
                 ))
-   
-  
-
 
         fig.update_layout(mapbox_style="open-street-map",
                           autosize=True,
-                          height = 300,
-                          margin={"r":0,"t":0,"l":0,"b":0})
-        fig.update_layout()
+                          height=300,
+                          margin={"r":0,"t":0,"l":0,"b":0},
+                          showlegend=False)  # This ensures that no legend is shown for the entire figure
+
     else:
         fig = {
             "layout": {
@@ -466,7 +451,7 @@ def main():
        
     """MULTITHREADING HANDLER: PLEASE DONT TOUCH IF YOU DONT KNOW WHAT YOU'RE DOING"""
       # Start continuous data update in a background thread
-    update_thread = threading.Thread(target=continuous_data_update, args=(1.5,))
+    update_thread = threading.Thread(target=continuous_data_update, args=(1,))
     update_thread.start()
 
     """ END OF MULTITHREADING HANDLER """
@@ -487,6 +472,7 @@ def main():
         print("Cleaning up...")
         update_thread.join()
         print("Exiting main thread")
+
         try:
             with lock:
                 # Writing data to a csv file
