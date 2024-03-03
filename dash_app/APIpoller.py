@@ -17,6 +17,7 @@ from requests_oauthlib import OAuth2Session
 
 # Dash-Based Imports:
 import plotly.express as px
+import plotly.graph_objects as go
 from dash import Dash, html, dcc
 from dash.dependencies import Input, Output
 
@@ -321,14 +322,52 @@ def update_map(n):
         # Ensure no rows with missing GPS data
         dff = dff.dropna(subset=['lat', 'lon'])
 
+
+# Assuming dff is already defined and contains 'lat' and 'lon' columns
+        dff['lat_diff'] = dff['lat'].diff().abs()
+        dff['lon_diff'] = dff['lon'].diff().abs()
+
+# Calculate a simple change metric as the sum of absolute differences
+        dff['change_metric'] = dff['lat_diff'] + dff['lon_diff']
+
+# Normalize the metric
+        dff['norm_change_metric'] = (dff['change_metric'] - dff['change_metric'].min()) / (dff['change_metric'].max() - dff['change_metric'].min())
+
         fig = px.scatter_mapbox(dff, lat="lat", lon="lon",
                                  hover_name="Timestamp",
-                                 color_discrete_sequence=["fuchsia"],
+                                 hover_data=["Accelerometer_Linear", "Accelerometer_X", "Accelerometer_Y", "Accelerometer_Z"],
+                                # mode = 'lines+markers',
+                                 color_discrete_sequence=["gold"],
                                  zoom=15, height=300)
+
+        dff.sort_values('Timestamp', inplace=True)
+        for i in range(1, len(dff)):
+            # Check if norm_change_metric is NaN or if there's no change
+            if not pd.isna(dff.iloc[i]['norm_change_metric']) and dff.iloc[i]['change_metric'] > 0:
+                # Calculate color based on norm_change_metric
+                # Green (low change) to Red (high change)
+                norm_metric = dff.iloc[i]["norm_change_metric"]
+                # Red channel: High for high change_metric
+                red = int(255 * norm_metric)
+                # Green channel: High for low change_metric
+                green = int(255 * (1 - norm_metric))
+                # Keep blue channel at 0
+                blue = 0
+                color = f'rgb({red},{green},{blue})'
+                
+                fig.add_trace(go.Scattermapbox(
+                    mode="lines",
+                    lon=[dff.iloc[i-1]['lon'], dff.iloc[i]['lon']],
+                    lat=[dff.iloc[i-1]['lat'], dff.iloc[i]['lat']],
+                    line=dict(width=3, color=color),
+                ))
+   
+  
+
+
         fig.update_layout(mapbox_style="open-street-map",
                           autosize=True,
                           height = 300,
-                          # width = '100%',
                           margin={"r":0,"t":0,"l":0,"b":0})
         fig.update_layout()
     else:
