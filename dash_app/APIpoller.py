@@ -46,6 +46,11 @@ prop_df = pd.DataFrame(columns = ['Timestamp','Accelerometer_Linear','Accelerome
 lock = threading.Lock()
 running = True # Global flag to control the main loop
 shutdown_event = threading.Event()
+ready_trigger = False
+
+
+tokenValid = False
+api_instance = ""
 
 # Inactivity Handling
 last_seen = "Placeholder"
@@ -54,30 +59,48 @@ inactive_count = 0
 
 """Dashboard Layout"""
 app.layout = html.Div([
- 
+    
+    # Always Visible
     # Container for the title and logo
     html.Div([
         html.Img(src='/assets/UGR.png', style={'width': '200px', 'height': 'auto'}),
         html.H1("Telemetry Dashboard", className='dashboard-header'),
     ], className='title-container'),
       
+    
+    # Only on loading:
+   
+    html.Div(id="loading-screen", children=[
+        html.Div(className='lds-facebook', children=[
+            html.Div(), html.Div(), html.Div()
+        ]),
+    ], style={'display': 'block'}),  # Initially visible
 
-    # Container for the first two items (iframe and graph)
-    html.Div(className='dashboard-container', children=[
-        # Card effect container for the iframe
-        html.Div(className='card-effect', children=[
-            dcc.Graph(id='live-update-map', className='map-container'),
+    html.Div(id="main-content", style={'display': 'none'}, children=[
+        
+        # Container for the first two items (iframe and graph)
+        html.Div(className='dashboard-container', children=[
+            # Card effect container for the iframe
+            html.Div(className='card-effect', children=[
+            
+                dcc.Graph(id='live-update-map', className='map-container')
+            ]),
+
+            dcc.Graph(id='Accel_Lin', className='graph-container'),
         ]),
 
-        dcc.Graph(id='Accel_Lin', className='graph-container'),
-    ]),
+        # Container for the next three graphs
+        html.Div(className='graph-container', children=[
+            dcc.Graph(id='Accel_X', className='graph-item'),
+            dcc.Graph(id='Accel_Y', className='graph-item'),
+            dcc.Graph(id='Accel_Z', className='graph-item'),
+        ]),
+    
+    ]), # Initially Hidden
 
-    # Container for the next three graphs
-    html.Div(className='graph-container', children=[
-        dcc.Graph(id='Accel_X', className='graph-item'),
-        dcc.Graph(id='Accel_Y', className='graph-item'),
-        dcc.Graph(id='Accel_Z', className='graph-item'),
-    ]),
+    # Initial Set Up Handling
+    dcc.Store(id='APILoadCheck'),
+    dcc.Interval(id='ready-checker', interval=1000, n_intervals=0, disabled=False),
 
     # Interval component to trigger updates, set to 1.3 seconds
     dcc.Interval(id='interval-component', interval=1300, n_intervals=0),
@@ -86,19 +109,53 @@ app.layout = html.Div([
 
 
 
+"""Initial Loading Handler"""
+# Poll whether the dash-app is ready to display real data
+@app.callback(
+    [Output('main-content', 'style'),
+    Output('loading-screen', 'style'),
+     Output('APILoadCheck', 'data')],
+    Input('ready-checker', 'n_intervals')
+)
+def update_content_visibility(_):
+    global ready_trigger
+    with lock:
+        if ready_trigger:
+            return {'display': 'block'}, {'display': 'none'}, {'ready':True}
+        else:
+            return {'display': 'none'}, {'display': 'block'}, {'ready':False}
+
+# Dash has to have a unique set of inputs and outputs, so we have to have a seperate callback, 
+# attached to a store to handle this :
+
+# When the "ready-checker" store is updated in update_content_visibilty(), disable the initial polling
+@app.callback(
+    Output('available-checker', 'disabled'),
+    [Input('APILoadCheck', 'data')]  # Assuming 'my-store' holds the state related to content readiness
+)
+def control_intervals_via_store(store_data):
+    if store_data and store_data.get('ready', True):
+        return True
+    # Default state if content is not ready
+    return False
+    
+
+
+
 """Callback function to handle exit signals"""
 def cleanup():
-    global running
+    global running, shutdown_event
     running = False
+    shutdown_event.set()
     # Please don't add pre-exit code here, cleanup gets executed by all threads.
         # Pre-Exit code should be added in the "finally" section of the main thread.
     
 
-
+"""API Call and Data Handling"""
 # TODO: Abstract this out into a separate file ?
 # function to fetch and format api data into a pandas dataframe
 def fetch_and_format_api_data(api_instance):
-    global prop_df, meta_df, last_seen, inactive_count, running
+    global prop_df, meta_df, last_seen, inactive_count, running, ready_trigger
 
     # Bug Handling to do with Multithreading
     if not running:
@@ -154,7 +211,7 @@ def fetch_and_format_api_data(api_instance):
             # Bug Fix: Don't Touch
             if running:
                 print(prop_df)
-
+            ready_trigger = True
         except ApiException as e:
             print(f"an exception occurred: {e}")
 
@@ -271,7 +328,7 @@ def update_map(n):
         fig.update_layout(mapbox_style="open-street-map",
                           autosize=True,
                           height = 300,
-                          # width = 300,
+                          # width = '100%',
                           margin={"r":0,"t":0,"l":0,"b":0})
         fig.update_layout()
     else:
@@ -335,10 +392,15 @@ def setup():
 
 """ MULTITHREADED DATA CALLING: PLEASE DON'T TOUCH IF YOU DON'T KNOW WHAT YOU'RE DOING"""
 # Function to continuously update data
-def continuous_data_update(api_instance, update_interval=1):
-    global running
+def continuous_data_update(update_interval=1):
+    global running, tokenValid, api_instance, shutdown_event
+    while not tokenValid:
+        print("Getting Token")
+        api_instance = setup()
+        tokenValid = True
+
     print("Starting continuous data update")
-    while running:
+    while not shutdown_event.is_set():
         try:
             fetch_and_format_api_data(api_instance)
             time.sleep(update_interval)  # Wait for the specified update interval
@@ -348,28 +410,28 @@ def continuous_data_update(api_instance, update_interval=1):
     print("Exiting continuous data update")
     shutdown_event.set()  # Signal the shutdown event
 
+# Define a route within your Dash app to handle shutdown
+@app.server.route('/shutdown', methods=['POST'])
+def shutdown():
+    shutdown_server()
+    return 'Server shutting down...'
+
+
 
 def main():
     global running, prop_df
-
-    # Setup the API Client
-    api_instance = setup()
-       
-    """MULTITHREADING HANDLER: PLEASE DONT TOUCH IF YOU DONT KNOW WHAT YOU'RE DOING"""
-        # Define a route within your Dash app to handle shutdown
-    @app.server.route('/shutdown', methods=['POST'])
-    def shutdown():
-        shutdown_server()
-        return 'Server shutting down...'
-    # Start continuous data update in a background thread
-    update_thread = threading.Thread(target=continuous_data_update, args=(api_instance, 1.5))
-    update_thread.start()
-
-    """ END OF MULTITHREADING HANDLER """
-    
+ 
     # Register cleanup function to be called on exit
     atexit.register(cleanup)
 
+       
+    """MULTITHREADING HANDLER: PLEASE DONT TOUCH IF YOU DONT KNOW WHAT YOU'RE DOING"""
+      # Start continuous data update in a background thread
+    update_thread = threading.Thread(target=continuous_data_update, args=(1.5,))
+    update_thread.start()
+
+    """ END OF MULTITHREADING HANDLER """
+   
     # Optimisation: Keep Dash up until shutdown event is set, don't let end of data transmission kill it
     try:
         # Run the Dash app
@@ -382,7 +444,7 @@ def main():
 
     # Cleanup of threads and data
     finally:
-        cleanup() 
+        cleanup()
         print("Cleaning up...")
         update_thread.join()
         print("Exiting main thread")

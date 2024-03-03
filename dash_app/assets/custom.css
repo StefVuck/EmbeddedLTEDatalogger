@@ -43,7 +43,7 @@ body, html {
 
 /* Generic styling for the cards */
 .card-effect {
-    width: 40%; /* Adjust based on preference and layout */
+    width: 45%; /* Adjust based on preference and layout */
     height: 300px;
     padding: 20px;
     margin: auto; /* Centering the card */
@@ -61,15 +61,29 @@ body, html {
 }
 
 
-@media (max-width: 768px) { /* Example breakpoint for smaller screens */
+@media (max-width: 950px) { /* Example breakpoint for smaller screens */
     .card-effect {
-        width: 98%; /* Takes more space on smaller screens */
-        height: auto; /* Adjust height for smaller screens */
+        width: 75%; /* Takes more space on smaller screens */
     }
-    .graph-container {
-        width: 95%; /* Optionally adjust for smaller screens */
-        height: 80%; /* Adjust based on your content */
+    .graph-container { 
+        width: 95%; /* Optionally adjust for smaller screens */ 
+        height: 80%; /* Adjust based on your content */ 
+    } 
+    .graph-item {
+        width: 90%;
     }
+}
+
+@media (min-width: 950px) { /* Example breakpoint for smaller screens */
+    .card-effect {
+        width: 50%; /* Takes more space on smaller screens */
+    }
+    /* .graph-container {  */
+    /*     width: 95%; /* Optionally adjust for smaller screens */  */
+    /* } */
+    /* .graph-item { */
+    /*     width: 90%; */
+    /* } */
 }
 
 
@@ -77,17 +91,77 @@ body, html {
     flex: 1;
     display: flex;
     justify-content: space-between; /* This ensures the graphs are spaced evenly */
+    max-width: 100%;
+    box-sizing: border-box; /* Includes padding and border in the element's total width */
+    width: 100%; /* Ensures it takes up only the width of its parent */
 }
 
-.graph-item {
+
+ .graph-item {
     flex-basis: 33%; 
     padding: 10px;
     box-sizing: border-box;
     height: 300px;
+    max-width: 33%;
 }
-
+.card-effect {
+    min-width: 300px; /* Or another suitable minimum width */
+}
 .map-container {
     width: 80%;
-    height: 500px; /* Adjust based on your preference */
+    height: 300px; /* Adjust based on your preference */
     margin: auto; /* Center the map container */
 }
+
+#loading-screen {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    position: fixed; /* or absolute; depending on your need */
+    top: 0;
+    left: 0;
+    background-color: rgba(0, 0, 0, 0.5); /* Example semi-transparent background */
+}
+
+.lds-facebook {
+  display: inline-block;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 80px;
+  height: 80px;
+}
+.lds-facebook div {
+  display: inline-block;
+  position: absolute;
+  left: 8px;
+  width: 16px;
+  background: #fff;
+  animation: lds-facebook 1.2s cubic-bezier(0, 0.5, 0.5, 1) infinite;
+}
+.lds-facebook div:nth-child(1) {
+  left: 8px;
+  animation-delay: -0.24s;
+}
+.lds-facebook div:nth-child(2) {
+  left: 32px;
+  animation-delay: -0.12s;
+}
+.lds-facebook div:nth-child(3) {
+  left: 56px;
+  animation-delay: 0s;
+}
+@keyframes lds-facebook {
+  0% {
+    top: 8px;
+    height: 64px;
+  }
+  50%, 100% {
+    top: 24px;
+    height: 32px;
+  }
+}
+
