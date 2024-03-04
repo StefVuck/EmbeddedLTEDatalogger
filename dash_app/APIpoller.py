@@ -333,7 +333,7 @@ def update_map(n):
                                 hover_name="Timestamp",
                                 hover_data=["Accelerometer_Linear", "Accelerometer_X", "Accelerometer_Y", "Accelerometer_Z"],
                                 color_discrete_sequence=["gold"],
-                                zoom=15, height=300)
+                                zoom=16, height=300)
 
         dff.sort_values('Timestamp', inplace=True)
         for i in range(1, len(dff)):
